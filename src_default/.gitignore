@@ -1,0 +1,7 @@
+# Project related
+out/
+micro16-simulator.jar
+
+# IntelliJ IDEA
+.idea/
+*.iml

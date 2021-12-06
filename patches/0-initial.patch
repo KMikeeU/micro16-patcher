@@ -1,0 +1,88 @@
+diff --git a/micro16sdk/Main.java b/micro16sdk/Main.java
+index 222d223..186bf0e 100644
+--- a/micro16sdk/Main.java
++++ b/micro16sdk/Main.java
+@@ -1,5 +1,6 @@
+ package micro16sdk;
+ 
++import java.io.*;
+ import java.util.Locale;
+ import javax.swing.JComponent;
+ 
+@@ -7,9 +8,20 @@ public class Main {
+    public Main() {
+    }
+ 
+-   public static void main(String[] var0) {
++   public static void main(String[] var0) throws IOException {
+       Locale.setDefault(Locale.ENGLISH);
+       JComponent.setDefaultLocale(Locale.ENGLISH);
+-      Micro16SDK.start();
++
++      // Load file from cli arguments
++      String code = "";
++      if(var0.length >= 1){
++         File file = new File(var0[0]);
++         BufferedReader br = new BufferedReader(new FileReader(file));
++         String line;
++         while((line = br.readLine()) != null)
++            code += line + "\n";
++      }
++
++      Micro16SDK.start(code);
+    }
+ }
+diff --git a/micro16sdk/Micro16SDK.java b/micro16sdk/Micro16SDK.java
+index bba0cbc..50fafc8 100644
+--- a/micro16sdk/Micro16SDK.java
++++ b/micro16sdk/Micro16SDK.java
+@@ -166,17 +166,20 @@ public class Micro16SDK extends JFrame {
+    private JButton visualisationButton;
+    private JToggleButton vmSwitch;
+ 
+-   public Micro16SDK() {
++   public Micro16SDK(String code) {
+       try {
+          this.isMac = System.getProperty("os.name").toUpperCase().indexOf("MAC") == 0;
+       } catch (SecurityException var2) {
+       }
+ 
+       this.initComponents();
++
++      // Load code from CLI
++      this.codeField.setText(code);
+    }
+ 
+    public void setTitles(String var1) {
+-      this.setTitle(var1 + " - Micro16 - SDK v" + "1.2.3:8");
++      this.setTitle(var1 + " - Micro16 - SDK v" + "1.2.3:8" + " VSCode Edition");
+    }
+ 
+    private void initComponents() {
+@@ -652,7 +655,7 @@ public class Micro16SDK extends JFrame {
+       this.constTable.getColumnModel().getColumn(0).setResizable(false);
+       this.constTable.getColumnModel().getColumn(1).setResizable(false);
+       this.constTable.getColumnModel().getColumn(1).setPreferredWidth(250);
+-      this.copyrightLabel1.setText("© 2016 David Krywult, Jannis Meixner & TGI-Team  ");
++      this.copyrightLabel1.setText("© 2016 David Krywult, Jannis Meixner & TGI-Team & Mod by Mikee <3");
+       this.micTable.setModel(new DefaultTableModel(new Object[][]{{"MIC", null}, {"MIR", null}}, new String[]{"Register", "Value"}) {
+          Class[] types = new Class[]{String.class, String.class};
+          boolean[] canEdit = new boolean[]{false, false};
+@@ -1277,7 +1280,7 @@ public class Micro16SDK extends JFrame {
+       ((JTextComponent)this.popupMenu.getInvoker()).paste();
+    }
+ 
+-   public static void start() {
++   public static void start(String code) {
+       try {
+          LookAndFeelInfo[] var0 = UIManager.getInstalledLookAndFeels();
+          int var1 = var0.length;
+@@ -1301,7 +1304,7 @@ public class Micro16SDK extends JFrame {
+ 
+       EventQueue.invokeLater(new Runnable() {
+          public void run() {
+-            Micro16SDK.instance = new Micro16SDK();
++            Micro16SDK.instance = new Micro16SDK(code);
+             Micro16SDK.instance.init();
+             Micro16SDK.instance.setupShortcuts();
+             if (Micro16SDK.instance.isMac) {
