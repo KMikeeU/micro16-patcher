@@ -25,16 +25,24 @@ Simply create a new run configuration using micro16sdk.Main as a Main class, don
 Open your Project Settings, add a new Artifact JAR "from modules with dependencies" select the Main class and build the artifact
 
 ## Usage
-The current patch loads the file provided as the first command line argument as instruction code. For example:
+The current patch loads all files provided as command line argument as instruction code and memory respectfully. For example:
 
 ```
-$ java -jar micro16patcher.jar "code.m16"
+$ java -jar micro16patcher.jar "code.m16" "code.m16m"
 ```
 
-will open the micro16 simulator with the code contained in the file code.m16
+will open the micro16 simulator with the code contained in the file code.m16 and the memory contained in code.m16m
+
+The format of the memory file is '\[ADDRESS\] \[VALUE\]', you can either use hex, binary or decimal, make sure to always keep the required format size, for example:
+
+```
+FFFF 0000000001111011
+FFFF 000F
+13   21
+```
 
 ### VSCode Task
-Include this VSCode Task in your VSCode project to run Micro16 within VSCode. Make sure to add the modified jar into your new project root.
+Include this VSCode Task in your VSCode project to run Micro16 within VSCode. Make sure to add the modified jar into your new project root. This will open the current filename as memory and code, make sure to name your files accordingly (eg.: test.m16 and test.m16m, use the same base name)
 
 ```json
 {
@@ -43,7 +51,7 @@ Include this VSCode Task in your VSCode project to run Micro16 within VSCode. Ma
         {
             "label": "Run with Micro16",
             "type": "shell",
-            "command": "java -jar ${workspaceFolder}/micro16patcher.jar \"${file}\"",
+            "command": "java -jar ${workspaceFolder}/micro16patcher.jar \"${workspaceFolder}${pathSeparator}${relativeFileDirname}${pathSeparator}${fileBasenameNoExtension}.m16\" \"${workspaceFolder}${pathSeparator}${relativeFileDirname}${pathSeparator}${fileBasenameNoExtension}.m16m\"",
             "problemMatcher": [],
             "group": {
                 "kind": "build",
