@@ -5,3 +5,5 @@ micro16-simulator.jar
 # IntelliJ IDEA
 .idea/
 *.iml
+
+META-INF/MANIFEST.MF

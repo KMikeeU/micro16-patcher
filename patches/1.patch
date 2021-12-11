@@ -1,0 +1,169 @@
+diff --git a/micro16sdk/Main.java b/micro16sdk/Main.java
+index 186bf0e..b5b7a78 100644
+--- a/micro16sdk/Main.java
++++ b/micro16sdk/Main.java
+@@ -1,6 +1,7 @@
+ package micro16sdk;
+ 
+ import java.io.*;
++import java.util.ArrayList;
+ import java.util.Locale;
+ import javax.swing.JComponent;
+ 
+@@ -14,14 +15,35 @@ public class Main {
+ 
+       // Load file from cli arguments
+       String code = "";
+-      if(var0.length >= 1){
+-         File file = new File(var0[0]);
+-         BufferedReader br = new BufferedReader(new FileReader(file));
+-         String line;
+-         while((line = br.readLine()) != null)
+-            code += line + "\n";
++      ArrayList<String> memory = new ArrayList<>();
++
++      // Every arg is considered a file, open every file for reading
++      for (String filename : var0) {
++         File file = new File(filename);
++         if(file.exists()){
++            BufferedReader br = new BufferedReader(new FileReader(file));
++            String line;
++
++            // Read line by line
++            while((line = br.readLine()) != null) {
++               // This is stupid... Decides destination of line multiple times **per file**, on every line
++               if(filename.endsWith(".m16") || filename.endsWith(".m16.txt")){
++                  code += line + "\n";
++               }else if(filename.endsWith(".m16m") || filename.endsWith(".m16m.txt")){
++                  if(!line.startsWith("#")){
++                     memory.add(line);
++                  }
++               }else{
++                  System.out.println("File " + filename + " not recognized.");
++                  break;
++               }
++            }
++         }
+       }
+ 
+-      Micro16SDK.start(code);
++      String[] memoryArray = new String[memory.size()];
++      memoryArray = memory.toArray(memoryArray);
++
++      Micro16SDK.start(code, memoryArray);
+    }
+ }
+diff --git a/micro16sdk/Micro16SDK.java b/micro16sdk/Micro16SDK.java
+index 50fafc8..2a456d5 100644
+--- a/micro16sdk/Micro16SDK.java
++++ b/micro16sdk/Micro16SDK.java
+@@ -17,10 +17,7 @@ import java.io.IOException;
+ import java.io.PrintWriter;
+ import java.nio.charset.Charset;
+ import java.nio.file.Files;
+-import java.util.ArrayList;
+-import java.util.Iterator;
+-import java.util.List;
+-import java.util.Scanner;
++import java.util.*;
+ import java.util.logging.Level;
+ import java.util.logging.Logger;
+ import javax.swing.AbstractAction;
+@@ -73,6 +70,9 @@ import micro16sdk.devices.displays.TextDisplay;
+ import micro16sdk.visualisation.VisualisationFrame;
+ 
+ public class Micro16SDK extends JFrame {
++   // This is the memory loaded by the mod
++   private short[] loadedMemory = new short[65536];
++
+    private static final String APPLICATIONTITLE = " - Micro16 - SDK v";
+    private static final String VERSION = "1.2.3:8";
+    private static Micro16SDK instance = null;
+@@ -166,7 +166,7 @@ public class Micro16SDK extends JFrame {
+    private JButton visualisationButton;
+    private JToggleButton vmSwitch;
+ 
+-   public Micro16SDK(String code) {
++   public Micro16SDK(String code, String[] memory) {
+       try {
+          this.isMac = System.getProperty("os.name").toUpperCase().indexOf("MAC") == 0;
+       } catch (SecurityException var2) {
+@@ -176,6 +176,41 @@ public class Micro16SDK extends JFrame {
+ 
+       // Load code from CLI
+       this.codeField.setText(code);
++
++      // Load memory from CLI
++      for(int line = 0; line < memory.length; ++line) {
++         String memoryLine = memory[line];
++
++         // If line contains two parts (addr + value)
++         if (memoryLine.matches(".*\s+.*")) {
++            String[] memoryParts = memoryLine.split("\s+");
++
++            // If line contains values
++            if (memoryParts.length == 2 && !memoryParts[0].isEmpty() && !memoryParts[1].isEmpty()) {
++               int memLoc = 0;
++               if(memoryParts[0].length() == 4){
++                  memLoc = Integer.parseInt(memoryParts[0], 16);
++               }else if(memoryParts[0].length() == 16){
++                  memLoc = Integer.parseInt(memoryParts[0], 2);
++               }else{
++                  memLoc = Integer.parseInt(memoryParts[0], 10);
++               }
++
++               int memVal = 0;
++               // Parse value as hex/bin/dec based on length (this is a stupid way of doing it)
++               if(memoryParts[1].length() == 4){
++                  memVal = Integer.parseInt(memoryParts[1], 16);
++               }else if(memoryParts[1].length() == 16){
++                  memVal = Integer.parseInt(memoryParts[1], 2);
++               }else{
++                  memVal = Integer.parseInt(memoryParts[1], 10);
++               }
++
++               loadedMemory[memLoc] = (short)memVal;
++            }
++         }
++      }
++
+    }
+ 
+    public void setTitles(String var1) {
+@@ -1280,7 +1315,7 @@ public class Micro16SDK extends JFrame {
+       ((JTextComponent)this.popupMenu.getInvoker()).paste();
+    }
+ 
+-   public static void start(String code) {
++   public static void start(String code, String[] memory) {
+       try {
+          LookAndFeelInfo[] var0 = UIManager.getInstalledLookAndFeels();
+          int var1 = var0.length;
+@@ -1304,7 +1339,9 @@ public class Micro16SDK extends JFrame {
+ 
+       EventQueue.invokeLater(new Runnable() {
+          public void run() {
+-            Micro16SDK.instance = new Micro16SDK(code);
++            // Start new instance and initiate with loaded code and memory
++            Micro16SDK.instance = new Micro16SDK(code, memory);
++
+             Micro16SDK.instance.init();
+             Micro16SDK.instance.setupShortcuts();
+             if (Micro16SDK.instance.isMac) {
+@@ -1328,6 +1365,16 @@ public class Micro16SDK extends JFrame {
+ 
+             Micro16SDK.instance.setLocationRelativeTo((Component)null);
+             Micro16SDK.instance.setVisible(true);
++
++            // Load memory
++            processor.setMemory(Micro16SDK.instance.loadedMemory);
++            MemoryHandler.copyMemory(false);
++
++
++            // Set frequency to 10
++            Micro16SDK.instance.clockSpeedSpinner.setValue(10);
++            // Immediately assemble
++            Micro16SDK.instance.assembleButton.doClick();
+          }
+       });
+    }
