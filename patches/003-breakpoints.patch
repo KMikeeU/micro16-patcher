@@ -1,0 +1,181 @@
+diff --git a/micro16sdk/Micro16SDK.java b/micro16sdk/Micro16SDK.java
+index b7be7be..f6d3b2a 100644
+--- a/micro16sdk/Micro16SDK.java
++++ b/micro16sdk/Micro16SDK.java
+@@ -73,6 +73,9 @@ public class Micro16SDK extends JFrame {
+    // If dark mode is enabled
+    public static boolean darkMode = false;
+ 
++   // Array of breakpoints
++   public List<Integer> breakpoints = new ArrayList<>();
++
+    private static final String APPLICATIONTITLE = " - Micro16 - SDK v";
+    private static final String VERSION = "1.2.3:8";
+    private static Micro16SDK instance = null;
+@@ -1407,6 +1410,11 @@ public class Micro16SDK extends JFrame {
+          this.runSwitch.setSelected(!getProcessor().getMIR().equals("(null)"));
+          MemoryHandler.copyMemory(false);
+          MemoryHandler.updateRegistersTable(false);
++
++         if(this.breakpoints.contains( (int)processor.getLastProgramCounter() )){
++            System.out.println("[INFO] Hit breakpoint at #"+processor.getLastProgramCounter());
++            this.runSwitch.setSelected(false);
++         }
+       }
+ 
+    }
+diff --git a/micro16sdk/Preassembler.java b/micro16sdk/Preassembler.java
+index 7e0d848..1f0745b 100644
+--- a/micro16sdk/Preassembler.java
++++ b/micro16sdk/Preassembler.java
+@@ -8,24 +8,36 @@ public abstract class Preassembler {
+    public Preassembler() {
+    }
+ 
+-   public static String[] preassemble(String var0) throws Exception {
+-      var0 = var0.replaceAll("(?m)#.*$", "");
+-      var0 = var0.replaceAll("(?m)^$", "NOP");
+-      var0 = var0.replaceAll("(?<!h)\\(-1\\)", "-1");
+-      HashMap var1 = new HashMap();
+-      Scanner var2 = new Scanner(var0);
+-      var2.useDelimiter("\n");
++   public static String[] preassemble(String instructions) throws Exception {
++      // We are re-assembling, remove all old breakpoints
++      Micro16SDK.getInstance().breakpoints.clear();
++
++
++      instructions = instructions.replaceAll("(?m)^$", "NOP");
++      instructions = instructions.replaceAll("(?<!h)\\(-1\\)", "-1");
++      HashMap hashMap = new HashMap();
++      Scanner instructionScanner = new Scanner(instructions);
++      instructionScanner.useDelimiter("\n");
+       String[] var3 = new String[]{"", ""};
+ 
+-      int var4;
+-      String var5;
++      int i;
++      String line;
+       String var8;
+       int var17;
+       int var19;
+-      for(var4 = 0; var2.hasNext(); ++var4) {
+-         var5 = var2.next().replaceAll("\n", "").trim();
+-         if (Micro16SDK.SDKLEVEL == Micro16SDK.SDKLevel.FULL && var5.matches(".*'(((0x|h)[0-9a-fA-F][0-9a-fA-F]?[0-9a-fA-F]?[0-9a-fA-F]?)|([0-9])+|(b[0-1]+)),.*")) {
+-            String var6 = var5.substring(var5.indexOf("'"));
++      for(i = 0; instructionScanner.hasNext(); ++i) {
++         line = instructionScanner.next().replaceAll("\n", "").trim();
++
++         // Line conains breakpoint marker #b., setting breakpoint
++         if(line.matches(".*#\\s*b\\..*")){
++            Micro16SDK.getInstance().breakpoints.add(i);
++         }
++
++         // Remove all comments from line
++         line = line.replaceAll("(?m)#.*$", "");
++
++         if (Micro16SDK.SDKLEVEL == Micro16SDK.SDKLevel.FULL && line.matches(".*'(((0x|h)[0-9a-fA-F][0-9a-fA-F]?[0-9a-fA-F]?[0-9a-fA-F]?)|([0-9])+|(b[0-1]+)),.*")) {
++            String var6 = line.substring(line.indexOf("'"));
+             String var7 = var6.substring(1, var6.indexOf(","));
+             var8 = var6.substring(var6.indexOf(",") + 1);
+             int var9 = -1;
+@@ -70,70 +82,70 @@ public abstract class Preassembler {
+             }
+ 
+             if (var9 == -1 || !var10) {
+-               throw new UnsupportedOperationException("Error in memory data on line " + var4);
++               throw new UnsupportedOperationException("Error in memory data on line " + i);
+             }
+ 
+             var3[1] = var3[1] + "'0x" + trimToLengthLeft(Integer.toHexString(var9), 4, '0') + "," + var8 + "\n";
+-            var5 = var5.substring(0, var5.indexOf("'"));
++            line = line.substring(0, line.indexOf("'"));
+          }
+ 
+-         if (var5.matches(".*:[a-zA-Z]([a-zA-Z0-9]*)(#.*)?")) {
+-            var17 = var5.indexOf(":");
+-            var19 = var5.indexOf(";", var17);
+-            var3[0] = var3[0] + var5.substring(0, var17);
++         if (line.matches(".*:[a-zA-Z]([a-zA-Z0-9]*)(#.*)?")) {
++            var17 = line.indexOf(":");
++            var19 = line.indexOf(";", var17);
++            var3[0] = var3[0] + line.substring(0, var17);
+             if (var19 == -1) {
+-               var1.put(var5.substring(var17 + 1).trim(), var4);
++               hashMap.put(line.substring(var17 + 1).trim(), i);
+             } else {
+-               var3[0] = var3[0] + var5.substring(var19);
+-               var1.put(var5.substring(var17 + 1, var19).trim(), var4);
++               var3[0] = var3[0] + line.substring(var19);
++               hashMap.put(line.substring(var17 + 1, var19).trim(), i);
+             }
+ 
+             var3[0] = var3[0] + "\n";
+          } else {
+-            if (var5.contains(":")) {
+-               throw new UnsupportedOperationException("Label Error on line " + var4 + ":\nLabel names must start with a\nletter and only contain\nalpha numeric characters.");
++            if (line.contains(":")) {
++               throw new UnsupportedOperationException("Label Error on line " + i + ":\nLabel names must start with a\nletter and only contain\nalpha numeric characters.");
+             }
+ 
+-            var3[0] = var3[0] + var5 + "\n";
++            var3[0] = var3[0] + line + "\n";
+          }
+       }
+ 
+       var3[0] = var3[0].replaceAll("(?m)^$", "NOP");
+-      var2 = new Scanner(var3[0]);
+-      var2.useDelimiter("\n");
++      instructionScanner = new Scanner(var3[0]);
++      instructionScanner.useDelimiter("\n");
+       var3[0] = "";
+ 
+-      for(var4 = 0; var2.hasNext(); ++var4) {
+-         var5 = var2.next();
+-         if (var5.contains(".")) {
+-            var17 = var5.indexOf(".");
+-            var19 = var5.indexOf(";", var17);
++      for(i = 0; instructionScanner.hasNext(); ++i) {
++         line = instructionScanner.next();
++         if (line.contains(".")) {
++            var17 = line.indexOf(".");
++            var19 = line.indexOf(";", var17);
+             if (var19 == -1) {
+-               var8 = var5.substring(var17 + 1);
++               var8 = line.substring(var17 + 1);
+             } else {
+-               var8 = var5.substring(var17 + 1, var19);
++               var8 = line.substring(var17 + 1, var19);
+             }
+ 
+-            Object var20 = var1.get(var8.trim());
++            Object var20 = hashMap.get(var8.trim());
+             if (var20 == null) {
+-               throw new UnsupportedOperationException("Label Error on line " + var4 + ":\nLabel not found: '" + var5.substring(var17 + 1).trim() + "'");
++               throw new UnsupportedOperationException("Label Error on line " + i + ":\nLabel not found: '" + line.substring(var17 + 1).trim() + "'");
+             }
+ 
+             int var21 = ((Number)var20).intValue();
+-            var5 = var5.replaceAll("." + var8, "" + var21);
+-            var3[0] = var3[0] + var5 + "\n";
++            line = line.replaceAll("." + var8, "" + var21);
++            var3[0] = var3[0] + line + "\n";
+          } else {
+-            var3[0] = var3[0] + var5 + "\n";
++            var3[0] = var3[0] + line + "\n";
+          }
+ 
+-         if (!grammarCheck(var5)) {
+-            GrammarException var18 = new GrammarException("Syntax Error on line " + var4);
+-            System.out.println("err in " + var5);
++         if (!grammarCheck(line)) {
++            GrammarException var18 = new GrammarException("Syntax Error on line " + i);
++            System.out.println("err in " + line);
+             throw var18;
+          }
+       }
+ 
+-      if (var4 > 256) {
++      if (i > 256) {
+          throw new GrammarException("Program is too long:\n(256 lines is maximum)");
+       } else {
+          return var3;

@@ -1,0 +1,97 @@
+diff --git a/micro16sdk/Main.java b/micro16sdk/Main.java
+index b5b7a78..367cccd 100644
+--- a/micro16sdk/Main.java
++++ b/micro16sdk/Main.java
+@@ -18,8 +18,13 @@ public class Main {
+       ArrayList<String> memory = new ArrayList<>();
+ 
+       // Every arg is considered a file, open every file for reading
+-      for (String filename : var0) {
+-         File file = new File(filename);
++      for (String arg : var0) {
++         if(arg.equalsIgnoreCase("--dark")){
++            Micro16SDK.darkMode = true;
++            continue;
++         }
++         
++         File file = new File(arg);
+          if(file.exists()){
+             BufferedReader br = new BufferedReader(new FileReader(file));
+             String line;
+@@ -27,14 +32,14 @@ public class Main {
+             // Read line by line
+             while((line = br.readLine()) != null) {
+                // This is stupid... Decides destination of line multiple times **per file**, on every line
+-               if(filename.endsWith(".m16") || filename.endsWith(".m16.txt")){
++               if(arg.endsWith(".m16") || arg.endsWith(".m16.txt")){
+                   code += line + "\n";
+-               }else if(filename.endsWith(".m16m") || filename.endsWith(".m16m.txt")){
++               }else if(arg.endsWith(".m16m") || arg.endsWith(".m16m.txt")){
+                   if(!line.startsWith("#")){
+                      memory.add(line);
+                   }
+                }else{
+-                  System.out.println("File " + filename + " not recognized.");
++                  System.out.println("File " + arg + " not recognized.");
+                   break;
+                }
+             }
+diff --git a/micro16sdk/Micro16SDK.java b/micro16sdk/Micro16SDK.java
+index 2a456d5..b7be7be 100644
+--- a/micro16sdk/Micro16SDK.java
++++ b/micro16sdk/Micro16SDK.java
+@@ -1,10 +1,6 @@
+ package micro16sdk;
+ 
+-import java.awt.Component;
+-import java.awt.Dimension;
+-import java.awt.EventQueue;
+-import java.awt.Font;
+-import java.awt.Toolkit;
++import java.awt.*;
+ import java.awt.event.ActionEvent;
+ import java.awt.event.ActionListener;
+ import java.awt.event.MouseAdapter;
+@@ -18,6 +14,7 @@ import java.io.PrintWriter;
+ import java.nio.charset.Charset;
+ import java.nio.file.Files;
+ import java.util.*;
++import java.util.List;
+ import java.util.logging.Level;
+ import java.util.logging.Logger;
+ import javax.swing.AbstractAction;
+@@ -73,6 +70,9 @@ public class Micro16SDK extends JFrame {
+    // This is the memory loaded by the mod
+    private short[] loadedMemory = new short[65536];
+ 
++   // If dark mode is enabled
++   public static boolean darkMode = false;
++
+    private static final String APPLICATIONTITLE = " - Micro16 - SDK v";
+    private static final String VERSION = "1.2.3:8";
+    private static Micro16SDK instance = null;
+@@ -1316,6 +1316,24 @@ public class Micro16SDK extends JFrame {
+    }
+ 
+    public static void start(String code, String[] memory) {
++
++      if(Micro16SDK.darkMode){
++         UIManager.put( "control", new Color( 22, 22, 22) );
++         UIManager.put( "info", new Color(22, 22, 22) );
++         UIManager.put( "nimbusBase", new Color( 22, 22, 22) );
++         UIManager.put( "nimbusAlertYellow", new Color( 248, 187, 0) );
++         UIManager.put( "nimbusDisabledText", new Color( 180,180,180) );
++         UIManager.put( "nimbusFocus", new Color(200, 200, 200) );
++         UIManager.put( "nimbusGreen", new Color(176,179,50) );
++         UIManager.put( "nimbusInfoBlue", new Color( 66, 139, 221) );
++         UIManager.put( "nimbusLightBackground", new Color( 22, 22, 22) );
++         UIManager.put( "nimbusOrange", new Color(191,98,4) );
++         UIManager.put( "nimbusRed", new Color(169,46,34) );
++         UIManager.put( "nimbusSelectedText", new Color( 255, 255, 255) );
++         UIManager.put( "nimbusSelectionBackground", new Color( 104, 93, 156) );
++         UIManager.put( "text", new Color( 230, 230, 230) );
++      }
++
+       try {
+          LookAndFeelInfo[] var0 = UIManager.getInstalledLookAndFeels();
+          int var1 = var0.length;
